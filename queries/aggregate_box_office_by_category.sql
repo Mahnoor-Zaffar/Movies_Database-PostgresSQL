@@ -1,20 +1,24 @@
 -- =============================================================================
 --  QUERY        : aggregate_box_office_by_category.sql
---  DESCRIPTION  : Rolls up total worldwide box office and average runtime by
---                 category. Demonstrates GROUP BY, aggregate functions, and
---                 NULLS-aware ordering.
+--  DESCRIPTION  : Rolls up worldwide box office and average runtime by genre.
+--                 After migration 010 the category lives in the normalized
+--                 `genres` table, so this query JOINs through the junction.
+--                 Demonstrates: JOIN, GROUP BY, aggregate functions, NULLS
+--                 ordering.
 -- =============================================================================
 
 SELECT
-    category,
-    COUNT(*)             AS title_count,
-    SUM(box_office)      AS total_box_office_usd,
-    ROUND(AVG(runtime))  AS avg_runtime_minutes
+    g.name                AS genre,
+    COUNT(*)              AS title_count,
+    SUM(f.box_office)     AS total_box_office_usd,
+    ROUND(AVG(f.runtime)) AS avg_runtime_minutes
 FROM
-    films
-WHERE
-    category IS NOT NULL
+    films             AS f
+INNER JOIN
+    film_genres       AS fg ON fg.film_id  = f.id
+INNER JOIN
+    genres            AS g  ON g.id        = fg.genre_id
 GROUP BY
-    category
+    g.name
 ORDER BY
     total_box_office_usd DESC NULLS LAST;
