@@ -1,0 +1,47 @@
+# =============================================================================
+#  docker-compose.yml
+#  -----------------------------------------------------------------------------
+#  Spins up a self-contained PostgreSQL instance pre-loaded with the project
+#  schema and seed data. On first boot, the official `postgres` image executes
+#  every `*.sql` file mounted into `/docker-entrypoint-initdb.d/` in lexical
+#  order, so the database is fully provisioned without any manual `psql` step.
+#
+#  QUICK START:
+#      cp .env.example .env       # then fill in values
+#      docker compose up -d       # start postgres in the background
+#      docker compose logs -f db  # follow logs (Ctrl+C to detach)
+#      docker compose down        # stop and remove the container
+#      docker compose down -v     # stop AND drop the persisted volume
+#
+#  CONNECT FROM HOST:
+#      psql -h localhost -p 5432 -U $POSTGRES_USER -d $POSTGRES_DB
+# =============================================================================
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: films_postgres
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB:       ${POSTGRES_DB}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      # Persisted data lives in a named Docker volume (NOT in the repo).
+      - films_pgdata:/var/lib/postgresql/data
+      # Init scripts run alphabetically on first container start only.
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  films_pgdata:
+    name: films_pgdata
